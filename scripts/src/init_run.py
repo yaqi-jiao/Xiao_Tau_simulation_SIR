@@ -98,7 +98,7 @@ def load_tau(args, data, initialized_variables, data_individual=None):
         initialized_variables["tau"] = (data_individual["tau"][args.subject_id].astype(float).values.reshape(-1))
     else:
         if args.simulated_protein in data:
-            initialized_variables["tau"] = data[args.simulated_protein][args.data_type].values.astype(float).reshape(-1)
+            initialized_variables["tau"] = data[args.simulated_protein][args.protein_type].values.astype(float).reshape(-1)
         else:
             raise ValueError("No simulated data name found in the input file.")
 

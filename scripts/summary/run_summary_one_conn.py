@@ -102,7 +102,7 @@ def summarize_one_conn(args):
         # Compute metrics at the best time point
         best_time = np.nanargmax(df_max_r_list[model])
         print("best time:", best_time)
-        pred = results["simulation"][args.epicenter][:, best_time] #results[args.epicenter]['pred_best']
+        pred = results[args.epicenter]['pred_best'] if "hypertune/" in path else results["simulation"][args.epicenter][:, best_time]
         scaled_pred = ((pred - np.nanmin(pred)) / (np.nanmax(pred) - np.nanmin(pred))) * (np.nanmax(tau_mean) - np.nanmin(tau_mean)) + np.nanmin(tau_mean)
         
         df_results[model] = pred
