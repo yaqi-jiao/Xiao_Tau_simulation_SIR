@@ -4,12 +4,15 @@
 data/
 results/
 output/
+__pycache__/
+simulation_env/
 *.csv
 *.npy
 *.npz
 *.pkl
 *.gii
 *.gii.gz
+*.pyc
 
 
 # allow directories
