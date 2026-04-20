@@ -91,10 +91,12 @@ def summarize_one_conn(args):
             # Retrieve the prediction pattern across time
             pred_across_time = results[args.epicenter]['max_pattern']
             hyperparam = results[args.epicenter]["max_combination"]
+            # print(results)
         else:
             matching_files = [f for f in os.listdir(path) if f.startswith("simulated_atrophy_all_")]
             results = pickle.load(open(os.path.join(path, matching_files[0]),'rb'))
             pred_across_time = results["simulation"][args.epicenter]
+            # print(results)
             hyperparam = "N/A"
         # Calculate Pearson correlation for each time point
         df_max_r_list[model] = [pearsonr(tau_mean, pred_across_time[:, i])[0] for i in range(pred_across_time.shape[1])]

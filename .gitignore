@@ -1,0 +1,25 @@
+# ignore all files
+*
+# specify directories to ignore
+data/
+results/
+output/
+*.csv
+*.npy
+*.npz
+*.pkl
+*.gii
+*.gii.gz
+
+
+# allow directories
+!*/
+
+# allow scripts directory
+!scripts/
+!scripts/**
+
+# a;llow specific files
+!.gitignore
+!README.md
+!requirements.txt

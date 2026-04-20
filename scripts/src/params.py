@@ -49,19 +49,19 @@ def parse_arguments(hypertune=False):
     parser.add_argument('--model_name', type=str, default=essential_params.get("model_name", "TEST_SIR_baseline_hypertune30000"),
                         help='Name of the model to be used as the result folder name. If you are running null models, please MAKE SURE to include "null_model" in the `model_name`')
     parser.add_argument('--simulated_protein', type=str, default=essential_params.get("simulated_protein", "tau"), help='Name of simulated protein for result folder')
-    parser.add_argument('--protein_type', type=str, default=essential_params.get("protein_type", "Presence"), help='Simulated protein type. dataframe column name of the observed tau in `input_data_name` file. Choices: ["Presence", "Load", "Subtype1", "Subtype2", ...]')
+    parser.add_argument('--protein_type', type=str, default=essential_params.get("protein_type", "Load"), help='Simulated protein type. dataframe column name of the observed tau in `input_data_name` file. Choices: ["Presence", "Load", "Subtype1", "Subtype2", ...]')
     # Optional
     parser.add_argument('--output_date_time', type=str, default=essential_params.get("output_date_time"), help='Custom output folder name; defaults to current date and time') # output_date_time = "20240128_154456"
     
     # Input data files
     # ================
     # !Essential! - Please change!
-    parser.add_argument('--input_data_name', type=str, default=essential_params.get("input_data_name", "Input_SIR_example.pkl"), help='Input data file name')
+    parser.add_argument('--input_data_name', type=str, default=essential_params.get("input_data_name", "Input_SIR_ROI66_replaced.pkl"), help='Input data file name')
     # Optional: all other connectivities
-    parser.add_argument('--regional_variable_file', type=str, default=essential_params.get("regional_variable_file", "regional_vulnerability_example.csv"), help='Input path of regional vulnerability for `spread_var`, `synthesis_var`, `misfold_var`, or `clearance_var`. MUST CHANGE together with rates.')
-    parser.add_argument('--connectivity_file', type=str, default=essential_params.get("connectivity_file", "Connectomes_all.pkl"), help='File containing all possible connectivity matrices that could be used as `SC_len`')
+    parser.add_argument('--regional_variable_file', type=str, default=essential_params.get("regional_variable_file", "mirrored_MAPT_APOE_selected.csv"), help='Input path of regional vulnerability for `spread_var`, `synthesis_var`, `misfold_var`, or `clearance_var`. MUST CHANGE together with rates.')
+    parser.add_argument('--connectivity_file', type=str, default=essential_params.get("connectivity_file", None), help='File containing all possible connectivity matrices that could be used as `SC_len`')
     parser.add_argument('--SC', type=str, default=essential_params.get("SC", None), help='connectivity name in `connectivity_file`. If this exists, will use this to replace data["conn"] (loaded from `input_data_name`), and use as `SC_len` of simualtion')
-    parser.add_argument('--individual_data_file', type=str, default=essential_params.get("individual_data_file", "data_individual.pkl"), help='File containing data for each subject, tau, conn, ...')
+    parser.add_argument('--individual_data_file', type=str, default=essential_params.get("individual_data_file", None), help='File containing data for each subject, tau, conn, ...')
 
     # Simulation essential input parameters
     # =====================================
@@ -92,7 +92,7 @@ def parse_arguments(hypertune=False):
     
     # Simulation for individual subjects
     # ==========================
-    parser.add_argument('--subject_id', type=str, default=essential_params.get("subject_id", 'subj_001'), help='Subject ID for individualized simulation')
+    parser.add_argument('--subject_id', type=str, default=essential_params.get("subject_id", None), help='Subject ID for individualized simulation')
 
     ##########################################
     # All the following arguments CAN NOT be specified using `User_input_settings.txt` file
@@ -108,7 +108,7 @@ def parse_arguments(hypertune=False):
     parser.add_argument('--null_model_i', type=int, default=None, help='i th iteration of the null model')
     parser.add_argument('--n_jobs', type=int, default=3, help='Number of parallel jobs for evaluation (n_jobs=-1 (use all available computational cores))')
     # Input & Output
-    parser.add_argument('--same_ROI_size', type=str, default=None, help='Uniform ROI size ("mean") or specific size number (int)')
+    parser.add_argument('--same_ROI_size', type=str, default="mean", help='Uniform ROI size ("mean") or specific size number (int)')
     parser.add_argument('--return_interm_results', type=bool, default=False, help='Save and return intermediate variables')
     parser.add_argument('--interm_variabels', type=str, default="movOut_mis,movDrt_mis,N_misfolded", help='Intermediate variables names to be saved') #Rnor_after_spread,Rmis_after_spread,Rnor_cleared,Rmis_cleared,misProb,N_misfolded,
     parser.add_argument('--mean_scatter_times_list', type=str, default=None, help='Whether to check the mean scatter plot of mean tau (in order to choose hyperparameters)') 
