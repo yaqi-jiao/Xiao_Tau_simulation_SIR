@@ -260,6 +260,16 @@ def plot_interm_difference(results_tmp, output_path, save_name):
     for name, result in results_tmp.items():
         if result is not None and not isinstance(result, list):
             if result.ndim == 2:
+                # tmp filter for toy data with only 10 ROIs
+                valid_selected_epicenter = {
+                    idx: color for idx, color in selected_epicenter.items()
+                    if idx < result.shape[0]
+                }
+
+                if len(valid_selected_epicenter) < len(selected_epicenter):
+                    print(f"[Temporary warning] Some preset ROI indices are out of range for {name} "
+                        f"(n_roi={result.shape[0]}). Skipping invalid indices.")
+
                 fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 
                 axs[0,0].set_title('first 50 time points')
@@ -267,16 +277,21 @@ def plot_interm_difference(results_tmp, output_path, save_name):
                 axs[1,0].set_title('100 to 20000')
                 axs[1,1].set_title('Later than 20000 timepoints')
                 for i, row in enumerate(result):
-                    if i not in selected_epicenter.keys():
+                    if i not in valid_selected_epicenter.keys():  # if i not in selected_epicenter.keys():
                         axs[0,0].plot(row[:50], color='grey')
                         axs[0,1].plot(row[50:100], color='grey')
                         axs[1,0].plot(row[100:200], color='grey') # 20000
                         axs[1,1].plot(row[200:], color='grey')
-                for i in selected_epicenter:
-                    axs[0,0].plot(result[i,:50], color=selected_epicenter[i])
-                    axs[0,1].plot(result[i,50:100], color=selected_epicenter[i])
-                    axs[1,0].plot(result[i,100:200], color=selected_epicenter[i])
-                    axs[1,1].plot(result[i,200:], color=selected_epicenter[i])
+                # for i in selected_epicenter:
+                #     axs[0,0].plot(result[i,:50], color=selected_epicenter[i])
+                #     axs[0,1].plot(result[i,50:100], color=selected_epicenter[i])
+                #     axs[1,0].plot(result[i,100:200], color=selected_epicenter[i])
+                #     axs[1,1].plot(result[i,200:], color=selected_epicenter[i])
+                for i in valid_selected_epicenter:
+                    axs[0,0].plot(result[i, :50], color=valid_selected_epicenter[i])
+                    axs[0,1].plot(result[i, 50:100], color=valid_selected_epicenter[i])
+                    axs[1,0].plot(result[i, 100:200], color=valid_selected_epicenter[i])
+                    axs[1,1].plot(result[i, 200:], color=valid_selected_epicenter[i])
     
             elif result.ndim == 3:
                 fig, axs = plt.subplots(5, 5, figsize=(15, 15)) 

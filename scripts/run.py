@@ -103,7 +103,28 @@ def run_model(args):
         # Evaluate the simulation results if required
         if args.evaluation_flag:
             print("Evaluating ...")
-            correlations = evaluate(results["simulated_atrophy"], results["Rmis_all"], init_vars["tau"], args.eval_metrics, args.T_total, n_jobs=args.n_jobs)
+
+            pred = results["simulated_atrophy"]
+            rmis = results["Rmis_all"]
+            tau = init_vars["tau"]
+
+            print("debug before slicing:")
+            print("pred shape:", pred.shape)
+            print("rmis shape:", rmis.shape)
+            print("tau shape:", tau.shape)
+
+            # slice the predicted atrophy and Rmis before evaluation if obs_idx_in_full is provided in init_vars
+            obs_idx = init_vars.get("obs_idx_in_full", None)
+            if obs_idx is not None:
+                pred = pred[obs_idx, :]
+                rmis = rmis[obs_idx, :]
+
+            print("debug after slicing:")
+            print("pred shape for eval:", pred.shape)
+            print("rmis shape for eval:", rmis.shape)
+            print("real tau shape:", init_vars["tau"].shape)
+
+            correlations = evaluate(pred, rmis, tau, args.eval_metrics, args.T_total, n_jobs=args.n_jobs)
             pickle.dump(correlations, open(os.path.join(args.output_path,"correlations_ROI"+str(repeat_epicenter)+".pkl"),'wb'))
         else:
             correlations = None
@@ -121,8 +142,9 @@ def run_model(args):
     print("Model run time: {} seconds".format(end_model_time - start_model_time))
     print("Output saving time: {} seconds".format(end_time - end_model_time))
 
-    if args.return_flag:
-        results_tmp["index_tau_to_conn"] = init_vars["index_tau_to_conn"]
+    if args.return_flag:  # add index information manually to the returned results
+        results_tmp["index_tau_to_conn"] = init_vars["index_tau_to_conn"]  # for situation when the number of tau ROIs is larger than the number of connectivity ROIs, and we only simulate tau propagation in the connectivity ROIs
+        results_tmp["obs_idx_in_full"] = init_vars.get("obs_idx_in_full", None)  # for situation when the number of tau ROIs is smaller than the number of connectivity ROIs, and we only simulate tau propagation in the tau ROIs
         return sim_results.simulated_data, init_vars["tau"], {**results, **results_tmp}
 
 

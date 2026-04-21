@@ -205,8 +205,10 @@ class TuningResultsTracker:
         for result_type in simulated_data:
             print("evaluate for",result_type)
             self.simulated_data[result_type].append(simulated_data[result_type][str(self.checked_epicenter)])
+            obs_idx = results_tmp.get("obs_idx_in_full", None)
             get_r_across_time(self, simulated_data[result_type][str(self.checked_epicenter)], self.y,
-                              result_type, combination, results_tmp) 
+                              result_type, combination, results_tmp, obs_idx=obs_idx) 
+            
             print("max r:", self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"][-1])
 
             if self.mean_scatter_times_list is not None: self.scatter_plot_across_time(combination, simulated_data, result_type)
@@ -444,7 +446,7 @@ class IndividualResultsTracker:
         print(f"saving time: {end - start}/60 mins")
 
     
-def get_r_across_time(tracker, predictions, true, result_type, config, results_tmp_all):
+def get_r_across_time(tracker, predictions, true, result_type, config, results_tmp_all, obs_idx=None):
     """
     Calculate the Pearson correlation across time between predicted and observed data.
 
@@ -455,6 +457,9 @@ def get_r_across_time(tracker, predictions, true, result_type, config, results_t
         results_tmp_all (dict): Intermediate results all, containing "Pnor0", "Rnor0", "Rnor_all", "Rmis_all" from results of simulated_atrophy and results_tmp from simulated_atrophy._mis_spread().
     """
     config_type = 'combinations' if tracker.__class__.__name__ == 'TuningResultsTracker' else 'subjects'
+
+    if obs_idx is not None:
+        predictions = predictions[obs_idx, :]
 
     # Parallel computation of Pearson correlation across all time points
     tracker.r_dict[result_type][tracker.checked_epicenter][config] = Parallel(n_jobs=tracker.n_jobs)(

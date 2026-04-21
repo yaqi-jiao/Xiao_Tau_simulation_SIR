@@ -56,7 +56,7 @@ def parse_arguments(hypertune=False):
     # Input data files
     # ================
     # !Essential! - Please change!
-    parser.add_argument('--input_data_name', type=str, default=essential_params.get("input_data_name", "Input_SIR_ROI66_replaced.pkl"), help='Input data file name')
+    parser.add_argument('--input_data_name', type=str, default=essential_params.get("input_data_name", "Input_SIR_toy_ROI6.pkl"), help='Input data file name')
     # Optional: all other connectivities
     parser.add_argument('--regional_variable_file', type=str, default=essential_params.get("regional_variable_file", "mirrored_MAPT_APOE_selected.csv"), help='Input path of regional vulnerability for `spread_var`, `synthesis_var`, `misfold_var`, or `clearance_var`. MUST CHANGE together with rates.')
     parser.add_argument('--connectivity_file', type=str, default=essential_params.get("connectivity_file", None), help='File containing all possible connectivity matrices that could be used as `SC_len`')
