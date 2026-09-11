@@ -69,6 +69,7 @@ def run_model(args):
         # Determine left and right hemisphere ROIs
         if isinstance(repeat_epicenter, str): 
             repeat_epicenter_mirror = find_right_hemisphere(repeat_epicenter)
+            # return the index of usr input epicenter and its mirror in the init_vars['name'] list 
             if isinstance(init_vars['name'], list):
                 repeat_epicenter_lr = [init_vars['name'].index(x) 
                                             for x in [repeat_epicenter, repeat_epicenter_mirror] if x]

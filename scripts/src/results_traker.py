@@ -121,7 +121,7 @@ class ResultsTracker:
         """
         Save intermediate results for each epicenter to `args.output_path`.
 
-        Args:
+        Args: 
             results (dict): Final simulation results.
                 - simulated_atrophy (np.ndarray): Shape (n_regions, T_total).
                 - Rmis_all (np.ndarray): Shape (n_regions, T_total).
@@ -199,13 +199,15 @@ class TuningResultsTracker:
             combination (tuple): Current hyperparameter combination.
             sim_results (dict): Dictionary of simulation results.
             tau_mean (np.ndarray): Mean tau values, shape (n_regions, ).
-            results_tmp (dict): Intermediate simulation results.
+            results_tmp (dict): Intermediate simulation results. Contains "Pnor0", "Rnor0", "Rnor_all", "Rmis_all" from results of simulated_atrophy and results_tmp from simulated_atrophy._mis_spread(). Not sliced yet, shape (n_regions_conn, T_total).
         """
         if self.y is None:  self.y = tau_mean
         for result_type in simulated_data:
             print("evaluate for",result_type)
             self.simulated_data[result_type].append(simulated_data[result_type][str(self.checked_epicenter)])
             obs_idx = results_tmp.get("obs_idx_in_full", None)
+            # print hint1: before get_r_across_time, prediction is full, but true is observation-aligned
+            print(f"[update] result_type={result_type}, raw_pred_shape={simulated_data[result_type][str(self.checked_epicenter)].shape}, y_shape={self.y.shape}, obs_idx={obs_idx}")
             get_r_across_time(self, simulated_data[result_type][str(self.checked_epicenter)], self.y,
                               result_type, combination, results_tmp, obs_idx=obs_idx) 
             
@@ -283,10 +285,12 @@ class TuningResultsTracker:
         max_r_list = self.r_dict[result_type][self.checked_epicenter][self.param_combinations[ind_max_param]]
         max_time = np.nanargmax(max_r_list)
         max_r = np.nanmax(max_r_list)
+        # !!! pred_best is from the sliced predictions. max_pattern is from
+        # tracker.best_combination[result_type][tracker.checked_epicenter]["max_pattern"] = predictions 
         pred_best = self.best_combination[result_type][self.checked_epicenter]["max_pattern"][:,max_time]
         self.best_combination[result_type][self.checked_epicenter]["pred_best"] = pred_best
         self.r_dict[result_type][self.checked_epicenter]["max"] = max_r
-
+        print(f"[get_best_params] result_type={result_type}, max_pattern_shape={self.best_combination[result_type][self.checked_epicenter]['max_pattern'].shape}, max_time={max_time}, pred_best_shape={pred_best.shape}")
         print("max_r_across_time:",len(self.r_dict[result_type][self.checked_epicenter]["max_r_each_run"]))
         print("max combination is:", self.param_combinations[ind_max_param], max_r)
 
@@ -459,7 +463,11 @@ def get_r_across_time(tracker, predictions, true, result_type, config, results_t
     config_type = 'combinations' if tracker.__class__.__name__ == 'TuningResultsTracker' else 'subjects'
 
     if obs_idx is not None:
+            # print hint: show slice info before slicing, since after slicing, the shape of predictions will change and it will be harder to debug if there is an issue with the slicing
+        print(f"Predictions needed to be sliced accroding to indices, \
+            [get_r_across_time] before slice: result_type={result_type}, config={config}, pred_shape={predictions.shape}, true_shape={true.shape}, obs_idx={obs_idx}")
         predictions = predictions[obs_idx, :]
+    print(f"[get_r_across_time] after slice: result_type={result_type}, config={config}, pred_shape={predictions.shape}")
 
     # Parallel computation of Pearson correlation across all time points
     tracker.r_dict[result_type][tracker.checked_epicenter][config] = Parallel(n_jobs=tracker.n_jobs)(
@@ -474,8 +482,14 @@ def get_r_across_time(tracker, predictions, true, result_type, config, results_t
     # Track the combination and update the best combination for hyperparameter tuning
     if config_type == 'combinations': # track best hyperparameter
         if r_max_tmp >= np.nanmax(tracker.r_dict[result_type][tracker.checked_epicenter]["max_r_each_run"]): #len(r_dict_tmp[epicenter]["max"])==0 or 
+            # print hint: since predictions is sliced, so the shape of predictions is different from the original shape of predictions before slicing, 
+            # so we print the shape of predictions and the shape of stored max_pattern to make sure they are consistent and to help debug if there is an issue with the slicing
+            print(f"[best update] result_type={result_type}, config={config}, r_max_tmp={r_max_tmp}, stored_max_pattern_shape={predictions.shape}")
+            # since predictions is sliced, so the max_pattern is also sliced as (6, T_total) instead of (n_regions, T_total)
             tracker.best_combination[result_type][tracker.checked_epicenter]["max_pattern"] = predictions
             tracker.best_combination[result_type][tracker.checked_epicenter]["max_combination"] = config
+            # results_tmp_all is not sliced, so it contains the full intermediate outputs for all regions
+            # do i need to slice results_tmp_all to get the intermediate outputs for the observed regions only? or just keep the full intermediate outputs for all regions since it contains more information and can be used for future analysis?
             tracker.best_combination[result_type][tracker.checked_epicenter]["max_results_tmp"] = results_tmp_all
         print("updated max combination:", config, r_max_tmp, "original:",tracker.r_dict[result_type][tracker.checked_epicenter]["max_r_each_run"][-1])
 

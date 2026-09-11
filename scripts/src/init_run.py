@@ -46,10 +46,14 @@ def initialize_run(args):
                   - "name": Region names (pd.Series) matching the connectivity matrix.
                   - "roi_size": Array of ROI sizes, shape (n_regions,).
                   - "tau_mean": Mean tau values, shape (n_regions,).
-                  - Other indices such as "index_tau_to_conn" etc.
+                  - Other indices such as "index_tau_to_conn", "obs_idx_in_full", "Rnor0" etc.
     """
     # Initialize a dictionary to store various simulation variables
-    initialized_variables = { "tau": None, "roi_size": None, "index_tau_to_conn": None, "obs_idx_in_full": None, "Rnor0": None}
+    initialized_variables = { "tau": None, 
+                            "roi_size": None, 
+                            "index_tau_to_conn": None, 
+                            "obs_idx_in_full": None, 
+                            "Rnor0": None}
 
     data, data_individual = load_main_data(args)
 
@@ -72,7 +76,7 @@ def initialize_run(args):
     print("Connectivity:",initialized_variables["conn"].shape, initialized_variables["conn"])
     print("Epicenter list: ", type(args.epicenter_list),type(args.epicenter_list[0]), args.epicenter_list)
 
-    print("\n=== DEBUG INIT ===")
+    print("\n*** data summary ***")
     print("tau shape:", initialized_variables["tau"].shape)
     print("conn shape:", initialized_variables["conn"].shape)
     print("name length:", len(initialized_variables["name"]))
@@ -83,11 +87,12 @@ def initialize_run(args):
     else:
         print("SC_len: None")
 
+    # print a diagnostic summary, not generate anything
     if initialized_variables["obs_idx_in_full"] is not None:
         print("obs_idx_in_full length:", len(initialized_variables["obs_idx_in_full"]))
     else:
         print("obs_idx_in_full: None")
-    print("=================\n")    
+    print("\n***********\n")    
 
     return args, initialized_variables
 
@@ -133,7 +138,7 @@ def load_connectivity(args, data, initialized_variables, data_individual=None):
     ### group-level
     initialized_variables["conn"] = data['conn']['conn']
     initialized_variables["name"] = pd.Series(data["conn"]["name"])
-    args.N_regions = len(initialized_variables["conn"])
+    args.N_regions = len(initialized_variables["conn"])  # NOTE to myself: if use the alternative connecitivy, this will not be updated.
     # Set SC_len if available from the data file
     if 'SC_len' in data['conn'].keys():
         args.SC_len = data['conn']['SC_len']
@@ -156,6 +161,12 @@ def load_alternative_connectivity(args, initialized_variables):
     """
     Load alternative connectivity matrix if specified in args.
     Group level only.
+    
+    Modification for this function has been made so that it can handle 2 cases:
+        (1) tau ROI set is larger than the alternative connectivity ROI 
+            -- index_tau_to_conn: indices of alternative-connectivity ROIs inside the original tau ROI space
+        (2) tau ROI set is a subset of the alternative connectivity ROI 
+            -- obs_idx_in_full: indices of observed tau ROIs inside the alternative-connectivity space
     """
     # If an alternative connectivity matrix (SC) is specified in args, load and update the connectivity data
     if args.SC is not None:
@@ -171,29 +182,109 @@ def load_alternative_connectivity(args, initialized_variables):
             # replace the original connectivity with the alternative one specified by args.SC
             initialized_variables["conn"] = conn_matrix[args.SC]
 
-        full_labels = list(conn_matrix["labels"]) # if "labels" in conn_matrix else None
+        # here, conn_labels refers to the labels of the alternative connectivity, obs_labels from the original input data (tau)
+        # Note to self: change the name of full_labels, it's too assumptive
+        conn_labels = list(conn_matrix["labels"])  # if "labels" in conn_matrix else None
         obs_labels = list(initialized_variables["name"])
+        orig_tau_n = len(obs_labels)
 
-        if full_labels != obs_labels: # match name and index, save the index of observed tau ROIs in the full connectome
-            initialized_variables["obs_idx_in_full"] = [full_labels.index(x) for x in obs_labels if x in full_labels]  # get the index of observed tau ROIs in the full connectome
+        # if conn_labels != obs_labels: # match name and index, save the index of observed tau ROIs in the full connectome
+        #     initialized_variables["obs_idx_in_full"] = [conn_labels.index(x) for x in obs_labels if x in conn_labels]  # get the index of observed tau ROIs in the full connectome
+        #     # initialized_variables["index_tau_to_conn"] = match_and_update(conn_matrix["labels"], initialized_variables["name"])
+        #     # initialized_variables["tau"] = initialized_variables["tau"][initialized_variables["index_tau_to_conn"]] # already 1d, .iloc[:,initialized_variables["index_tau_to_conn"]]
+        # else:
+        #     initialized_variables["obs_idx_in_full"] = list(range(len(obs_labels)))
+
+        if conn_labels == obs_labels:
+            print("Observed tau ROIs exactly match alternative connectivity ROIs.")
+            # initialized_variables["obs_idx_in_full"] = list(range(len(obs_labels)))
+            initialized_variables["obs_idx_in_full"] = None
+            initialized_variables["index_tau_to_conn"] = None
+
+        elif set(conn_labels).issubset(set(obs_labels)):
+            print("Observed tau ROI space contains the alternative connectivity ROI space.")
+            print("Activate index_tau_to_conn.")
+            # for each ROI in connectivity order, find its position in original space
             # initialized_variables["index_tau_to_conn"] = match_and_update(conn_matrix["labels"], initialized_variables["name"])
-            # initialized_variables["tau"] = initialized_variables["tau"][initialized_variables["index_tau_to_conn"]] # already 1d, .iloc[:,initialized_variables["index_tau_to_conn"]]
+            initialized_variables["index_tau_to_conn"] = [obs_labels.index(x) for x in conn_labels]
+            # slice tau to match the full connectome immediately
+            initialized_variables["tau"] = initialized_variables["tau"][initialized_variables["index_tau_to_conn"]]
+            print(f"[alignment] tau was sliced/reordered from {orig_tau_n} ROIs to {len(conn_labels)} RPOs to matched alternative connectivity")
+            print("[alignment] index_tau_to_conn:", initialized_variables["index_tau_to_conn"])
+
+        elif set(obs_labels).issubset(set(conn_labels)):
+            print("Observed tau ROI space is a subset of alternative connectivity ROI space.")
+            print("Activate obs_idx_in_full.")
+            initialized_variables["obs_idx_in_full"] = [conn_labels.index(x) for x in obs_labels if x in conn_labels]
+
         else:
-            initialized_variables["obs_idx_in_full"] = list(range(len(obs_labels)))
+            raise ValueError(
+            "The observed tau and connectivity ROI labels cannot be aligned "
+            "by direct one-to-one subset indexing. They may use different "
+            "parcellations or only partially overlapping ROI sets. "
+            "An explicit atlas mapping/aggregation is required."
+    )
 
         # update name to full labels for better matching with regional variables and SC_len
-        initialized_variables["name"] = pd.Series(full_labels)
+        initialized_variables["name"] = pd.Series(conn_labels)
+        # update the N_regions # NOTE to self: need to re-check its necessity
+        args.N_regions = initialized_variables["conn"].shape[0]
 
-        # load new SC_len if available in the connectivity file
+        # load new SC_len if available in the alternative connectivity file
+        # if no SC_len is provided it will remain the same as original matrix
         if "SC_len" in conn_matrix:
+            # best case: alternative connectivity provides its own SC_len, use it directly, no need to cut
             if args.null_model_i is not None and isinstance(conn_matrix["SC_len"], (list, tuple)):
                 args.SC_len = conn_matrix["SC_len"][int(args.null_model_i)]
             else:
                 args.SC_len = conn_matrix["SC_len"]
+        else:
+            # Alternative connectivity does not provide SC_len
+            # args.SC_len, if not None, is still from the original input data.
+            if args.SC_len is not None:
+                print("No SC_len provided in the alternative connectivity file, using the original SC_len from the input data.")
+                if initialized_variables["index_tau_to_conn"] is not None:
+                    # tau > alternative connectivity -> subset AND reorder the original SC_len into alternative-connectivity space
+                    args.SC_len = args.SC_len[np.ix_(initialized_variables["index_tau_to_conn"], initialized_variables["index_tau_to_conn"])]
+                elif initialized_variables["obs_idx_in_full"] is not None:
+                    # alternative connectivity > tau -> original SC_len cannot be expanded to cover missing ROIs
+                    print("Warning: alternative connectivity is larger than the original "
+                            "ROI space, but no alternative SC_len was provided. "
+                            "Original SC_len cannot be expanded; setting SC_len=None.")
+                    args.SC_len = None
+
+        if args.SC_len is not None and args.SC_len.shape != initialized_variables["conn"].shape:
+            raise ValueError(
+                f"SC_len shape {args.SC_len.shape} does not match "
+                f"connectivity shape {initialized_variables['conn'].shape}"
+            )
+
+        print("\nAlternative connectivity alignment summary:")
+        print("tau shape after alignment:", initialized_variables["tau"].shape)
+        print("connectivity shape:", initialized_variables["conn"].shape)
+        print("simulation label count:", len(initialized_variables["name"]))
+
+        if initialized_variables["index_tau_to_conn"] is not None:
+            print(
+                "index_tau_to_conn:",
+                len(initialized_variables["index_tau_to_conn"]),
+                initialized_variables["index_tau_to_conn"]
+            )
+        else:
+            print("index_tau_to_conn: None")     
+
+        if initialized_variables["obs_idx_in_full"] is not None:
+            print(
+                "obs_idx_in_full:",
+                len(initialized_variables["obs_idx_in_full"]),
+                initialized_variables["obs_idx_in_full"]
+            )
+        else:
+            print("obs_idx_in_full: None")        
         
-        print("observed tau shape:", initialized_variables["tau"].shape)  # should remain the same as original
-        print("full connectome shape:", initialized_variables["conn"].shape)  # should be updated
-        print("observed ROI count in full connectome:", len(initialized_variables["obs_idx_in_full"]))  # should be the same as the number of observed tau ROIs
+        # print("observed tau shape:", initialized_variables["tau"].shape)  # should remain the same as original
+        # print("full connectome shape:", initialized_variables["conn"].shape)  # should be updated as alternative connectivity
+        # print("observed ROI count in full connectome:", len(initialized_variables["obs_idx_in_full"]))  # should be the same as the number of observed tau ROIs
 
         # keep full SC_len for simulation on the full connectome
         # do not subset SC_len to observed tau ROIs here
@@ -218,15 +309,26 @@ def load_roi_size(args, data, initialized_variables, data_individual=None):
         print(f"loading individualized roi_size for subject {args.subject_id}")
         roi_values = data_individual["roi_size"][args.subject_id]
 
-    # alternative connectivity overwrite
     if args.SC is not None and "alternative_conn" in initialized_variables:
         alt_conn = initialized_variables["alternative_conn"]
+        # alternative connectivity overwrite if it contains ROI_size information
         if "ROI_size" in alt_conn:
+            # alternative ROI_size exists
             print("loading alternative ROI_size alternative connectovity")
             if isinstance(alt_conn["ROI_size"], dict):
                 roi_values = list(alt_conn["ROI_size"].values())
             else:
                 raise ValueError("ROI_size in the alternative connectivity file should be a dictionary")
+        else:
+            if args.same_ROI_size is None:
+                if initialized_variables["index_tau_to_conn"] is not None:
+                    # No alternative ROI_size, roi_size still from original input pkl
+                    # tau > alternative connectivity, reduce original roi_size
+                    roi_values = np.asarray(roi_values)[initialized_variables["index_tau_to_conn"]]
+                elif initialized_variables["obs_idx_in_full"] is not None:
+                    # Alternative connectivity has MORE ROIs, original SC_len cannot be expanded to cover missing ROIs
+                    raise ValueError("Alternative connectivity has more ROIs than the original tau ROI space, " \
+                    "but no alternative ROI_size was provided. Original ROI_size cannot be expanded.")
 
     # If no uniform ROI size is specified, use the provided ROI sizes; otherwise, set ROI size to a constant value
     if args.same_ROI_size is None:
