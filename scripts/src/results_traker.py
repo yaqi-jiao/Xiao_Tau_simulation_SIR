@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from brokenaxes import brokenaxes
+# from brokenaxes import brokenaxes
 from joblib import Parallel, delayed
 from sklearn.metrics import mean_squared_error
 
@@ -462,12 +462,57 @@ def get_r_across_time(tracker, predictions, true, result_type, config, results_t
     """
     config_type = 'combinations' if tracker.__class__.__name__ == 'TuningResultsTracker' else 'subjects'
 
-    if obs_idx is not None:
-            # print hint: show slice info before slicing, since after slicing, the shape of predictions will change and it will be harder to debug if there is an issue with the slicing
+    hip_amy_mapping = results_tmp_all.get("hip_amy_eval_mapping", None)
+    eval_roi_size = results_tmp_all.get("eval_roi_size", None)
+
+    # 1. calculate hip/amy weighted average values before slicing predictions
+    aggregated_hip_amy = []
+    if hip_amy_mapping is not None:
+        if obs_idx is None:
+            raise ValueError("hip_amy_eval_mapping is active but obs_idx_in_full is missing")
+        if eval_roi_size is None:
+            raise ValueError("hip_amy_eval_mapping is active but eval_roi_size is missing")
+
+        eval_roi_size = np.asarray(eval_roi_size)
+        for parent, mapping in hip_amy_mapping.items():
+            conn_indices = mapping["conn_indices"]
+            aggregation_target_obs_index = mapping["aggregation_target_obs_index"]
+
+            # perform voxel-wise average 
+            weights = eval_roi_size[conn_indices]
+
+            weighted_pred = np.average(
+            predictions[conn_indices, :],
+            axis=0,
+            weights=weights)
+
+            aggregated_hip_amy.append((parent, aggregation_target_obs_index, weighted_pred))
+
+        # 2. Keep only directly matched observation ROIs
+        predictions = predictions[obs_idx, :]
+        print(
+            f"[get_r_across_time] HIP/AMY mapping active: "
+            f"{len(aggregated_hip_amy)} aggregated ROI(s); "
+            f"direct prediction shape = {predictions.shape}"
+        )
+
+        for parent, mapped_obs_index, weighted_pred in sorted(aggregated_hip_amy,  key=lambda x: x[1]): 
+            predictions = np.insert(predictions, mapped_obs_index, weighted_pred, axis=0)
+            print("[get_r_across_time] inserted HIP/AMY:",
+                [(parent, mapped_obs_index) for parent, mapped_obs_index, _ in aggregated_hip_amy], "-> final prediction shape:", predictions.shape)
+
+    elif obs_idx is not None:
+        # print hint: show slice info before slicing, since after slicing, the shape of predictions will change and it will be harder to debug if there is an issue with the slicing
         print(f"Predictions needed to be sliced accroding to indices, \
             [get_r_across_time] before slice: result_type={result_type}, config={config}, pred_shape={predictions.shape}, true_shape={true.shape}, obs_idx={obs_idx}")
         predictions = predictions[obs_idx, :]
     print(f"[get_r_across_time] after slice: result_type={result_type}, config={config}, pred_shape={predictions.shape}")
+
+    if predictions.shape[0] != true.shape[0]:
+        raise ValueError(
+        f"Prediction ROI count after alignment "
+        f"({predictions.shape[0]}) does not match "
+        f"ground truth ({true.shape[0]}).")
 
     # Parallel computation of Pearson correlation across all time points
     tracker.r_dict[result_type][tracker.checked_epicenter][config] = Parallel(n_jobs=tracker.n_jobs)(
