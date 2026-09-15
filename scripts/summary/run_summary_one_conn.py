@@ -91,27 +91,36 @@ def summarize_one_conn(args):
             # Retrieve the prediction pattern across time
             pred_across_time = results[args.epicenter]['max_pattern']
             hyperparam = results[args.epicenter]["max_combination"]
-            # print(results)
+            # default: keep original observed tau
+            tau_eval = tau_mean
+            # tau > alternative connectivity:
+            # simulation/evaluation used the reduced tau space
+            max_results_tmp = results[args.epicenter].get("max_results_tmp", {})
+            if max_results_tmp.get("index_tau_to_conn", None) is not None:
+                tau_eval = np.load(os.path.join(path, "Y_observed.npy")).reshape(-1)
+                print("[summary_one_conn] index_tau_to_conn detected. Using saved Y_observed", tau_eval.shape)
+
         else:
             matching_files = [f for f in os.listdir(path) if f.startswith("simulated_atrophy_all_")]
             results = pickle.load(open(os.path.join(path, matching_files[0]),'rb'))
             pred_across_time = results["simulation"][args.epicenter]
             # print(results)
             hyperparam = "N/A"
+            tau_eval = tau_mean
         # Calculate Pearson correlation for each time point
-        df_max_r_list[model] = [pearsonr(tau_mean, pred_across_time[:, i])[0] for i in range(pred_across_time.shape[1])]
+        df_max_r_list[model] = [pearsonr(tau_eval, pred_across_time[:, i])[0] for i in range(pred_across_time.shape[1])]
         
         # Compute metrics at the best time point
         best_time = np.nanargmax(df_max_r_list[model])
         print("best time:", best_time)
         pred = results[args.epicenter]['pred_best'] if "hypertune/" in path else results["simulation"][args.epicenter][:, best_time]
-        scaled_pred = ((pred - np.nanmin(pred)) / (np.nanmax(pred) - np.nanmin(pred))) * (np.nanmax(tau_mean) - np.nanmin(tau_mean)) + np.nanmin(tau_mean)
+        scaled_pred = ((pred - np.nanmin(pred)) / (np.nanmax(pred) - np.nanmin(pred))) * (np.nanmax(tau_eval) - np.nanmin(tau_eval)) + np.nanmin(tau_eval)
         
         df_results[model] = pred
         df_results[model + "_scaled"] = scaled_pred
         df_metrics[model] = [best_time, hyperparam,
-                             pearsonr(tau_mean, pred)[0], pearsonr(tau_mean, pred)[1],
-                             mean_squared_error(tau_mean, scaled_pred)]
+                             pearsonr(tau_eval, pred)[0], pearsonr(tau_eval, pred)[1],
+                             mean_squared_error(tau_eval, scaled_pred)]
     
     # Save the aggregated metrics and predictions to CSV files
     df_max_r_list.to_csv(os.path.join(args.result_path, "Fig2_R_across_time.csv"))

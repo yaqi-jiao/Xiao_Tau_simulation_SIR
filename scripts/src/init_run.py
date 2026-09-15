@@ -53,6 +53,8 @@ def initialize_run(args):
                             "roi_size": None, 
                             "index_tau_to_conn": None, 
                             "obs_idx_in_full": None, 
+                            "hip_amy_eval_mapping": None,
+                            "eval_roi_size": None,
                             "Rnor0": None}
 
     data, data_individual = load_main_data(args)
@@ -72,7 +74,7 @@ def initialize_run(args):
     # Print summary information about the data
     # ==============================
     print("Number of regions: {}".format(args.N_regions))
-    print("SC_len: ", args.SC_len.shape, args.SC_len)
+    print("SC_len: ", args.SC_len.shape if args.SC_len is not None else None, args.SC_len)
     print("Connectivity:",initialized_variables["conn"].shape, initialized_variables["conn"])
     print("Epicenter list: ", type(args.epicenter_list),type(args.epicenter_list[0]), args.epicenter_list)
 
@@ -157,6 +159,7 @@ def load_connectivity(args, data, initialized_variables, data_individual=None):
 
         if "SC_len" in data_individual: args.SC_len = data_individual["SC_len"][args.subject_id] ### overwrite group-level SC_len if provided
 
+
 def load_alternative_connectivity(args, initialized_variables):
     """
     Load alternative connectivity matrix if specified in args.
@@ -185,7 +188,7 @@ def load_alternative_connectivity(args, initialized_variables):
         # here, conn_labels refers to the labels of the alternative connectivity, obs_labels from the original input data (tau)
         # Note to self: change the name of full_labels, it's too assumptive
         conn_labels = list(conn_matrix["labels"])  # if "labels" in conn_matrix else None
-        obs_labels = list(initialized_variables["name"])
+        obs_labels = list(initialized_variables["name"])  # original tau observation labels
         orig_tau_n = len(obs_labels)
 
         # if conn_labels != obs_labels: # match name and index, save the index of observed tau ROIs in the full connectome
@@ -195,13 +198,21 @@ def load_alternative_connectivity(args, initialized_variables):
         # else:
         #     initialized_variables["obs_idx_in_full"] = list(range(len(obs_labels)))
 
+        conn_set = set(conn_labels)
+        obs_set = set(obs_labels)
+
+        # reset mapping variables
+        initialized_variables["obs_idx_in_full"] = None
+        initialized_variables["index_tau_to_conn"] = None
+        initialized_variables["hip_amy_eval_mapping"] = None
+
+        # case1: exact match
         if conn_labels == obs_labels:
             print("Observed tau ROIs exactly match alternative connectivity ROIs.")
             # initialized_variables["obs_idx_in_full"] = list(range(len(obs_labels)))
-            initialized_variables["obs_idx_in_full"] = None
-            initialized_variables["index_tau_to_conn"] = None
 
-        elif set(conn_labels).issubset(set(obs_labels)):
+        # case2: tau > alternative connectivity
+        elif conn_set.issubset(obs_set):
             print("Observed tau ROI space contains the alternative connectivity ROI space.")
             print("Activate index_tau_to_conn.")
             # for each ROI in connectivity order, find its position in original space
@@ -212,18 +223,72 @@ def load_alternative_connectivity(args, initialized_variables):
             print(f"[alignment] tau was sliced/reordered from {orig_tau_n} ROIs to {len(conn_labels)} RPOs to matched alternative connectivity")
             print("[alignment] index_tau_to_conn:", initialized_variables["index_tau_to_conn"])
 
-        elif set(obs_labels).issubset(set(conn_labels)):
+        # case3: alternative connectivity > tau
+        elif obs_set.issubset(conn_set):
             print("Observed tau ROI space is a subset of alternative connectivity ROI space.")
             print("Activate obs_idx_in_full.")
             initialized_variables["obs_idx_in_full"] = [conn_labels.index(x) for x in obs_labels if x in conn_labels]
 
+        # case4: high-resolution HIP / AMY subdivisions
         else:
-            raise ValueError(
-            "The observed tau and connectivity ROI labels cannot be aligned "
-            "by direct one-to-one subset indexing. They may use different "
-            "parcellations or only partially overlapping ROI sets. "
-            "An explicit atlas mapping/aggregation is required."
-    )
+            # simulation and observation are NOT direct subsets,
+            # but their mismatch can be fully explained by high-resolution atlases
+            # the narrow version, only process higher-resolution hippocampus and amygdala subdivisions,
+            # other higher-resolution subregions remain unprocessed
+            print("Direct ROI subset matching failed. "
+                "Trying high-resolution HIP/AMY evaluation mapping.")
+
+            hip_amy_groups = {
+                "Left_Hippocampus": [],
+                "Right_Hippocampus": [],
+                "Left_Amygdala": [],
+                "Right_Amygdala": [],}
+            
+            for i, label in enumerate(conn_labels):
+                if label in obs_set:
+                    continue
+                label_lower = label.lower()
+                # hemisphere
+                if label_lower.endswith("_lh"):
+                    hemi = "lh"
+                elif label_lower.endswith("_rh"):
+                    hemi = "rh"
+                else:
+                    continue
+                # hippocampus
+                if "hippocampus" in label_lower:
+                    parent = "Left_Hippocampus" if hemi == "lh" else "Right_Hippocampus"
+                    hip_amy_groups[parent].append(i)
+                elif "amygdala" in label_lower:
+                    parent = "Left_Amygdala" if hemi == "lh" else "Right_Amygdala"
+                    hip_amy_groups[parent].append(i)
+                # other unmatched subcortical regions:
+                # intentionally ignored for evaluation
+                
+            # build cmapping
+            # hip/amy:
+            #   one obs idx -> multiple conn indices
+            hip_amy_eval_mapping = {
+                parent: {
+                    "aggregation_target_obs_index": obs_labels.index(parent),
+                    "conn_indices": indices,
+                }
+                for parent, indices in hip_amy_groups.items()
+                if parent in obs_set and indices
+            }
+
+            # Directly matched observation ROIs in connectivity space
+            # In this special case this list is intentionally shorter
+            # than obs_labels because HIP/AMY will be reconstructed later.
+            initialized_variables["obs_idx_in_full"] = [conn_labels.index(label) for label in obs_labels if label in conn_labels]
+            initialized_variables["hip_amy_eval_mapping"] = hip_amy_eval_mapping
+            print("HIP/AMY evaluation mapping:")
+            for parent, mapping in hip_amy_eval_mapping.items():
+                print(
+                    parent,
+                    f"(mapped obs index {mapping['aggregation_target_obs_index']}) <-",
+                    [conn_labels[i] for i in mapping["conn_indices"]]
+                )
 
         # update name to full labels for better matching with regional variables and SC_len
         initialized_variables["name"] = pd.Series(conn_labels)
@@ -329,6 +394,11 @@ def load_roi_size(args, data, initialized_variables, data_individual=None):
                     # Alternative connectivity has MORE ROIs, original SC_len cannot be expanded to cover missing ROIs
                     raise ValueError("Alternative connectivity has more ROIs than the original tau ROI space, " \
                     "but no alternative ROI_size was provided. Original ROI_size cannot be expanded.")
+
+    # keep the real high-resolution ROI sizes for later HIP/AMY
+    # weighted aggregation during evaluation
+    if initialized_variables["hip_amy_eval_mapping"] is not None:
+        initialized_variables["eval_roi_size"] = np.asarray(roi_values).reshape(-1,).copy()
 
     # If no uniform ROI size is specified, use the provided ROI sizes; otherwise, set ROI size to a constant value
     if args.same_ROI_size is None:

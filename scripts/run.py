@@ -146,6 +146,9 @@ def run_model(args):
     if args.return_flag:  # add index information manually to the returned results
         results_tmp["index_tau_to_conn"] = init_vars["index_tau_to_conn"]  # for situation when the number of tau ROIs is larger than the number of connectivity ROIs, and we only simulate tau propagation in the connectivity ROIs
         results_tmp["obs_idx_in_full"] = init_vars.get("obs_idx_in_full", None)  # for situation when the number of tau ROIs is smaller than the number of connectivity ROIs, and we only simulate tau propagation in the tau ROIs
+        # add high-resolution hip/amy evaluation
+        results_tmp["hip_amy_eval_mapping"] = init_vars["hip_amy_eval_mapping"]
+        results_tmp["eval_roi_size"] = init_vars["eval_roi_size"]
         return sim_results.simulated_data, init_vars["tau"], {**results, **results_tmp}
 
 

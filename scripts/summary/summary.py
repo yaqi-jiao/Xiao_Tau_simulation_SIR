@@ -200,6 +200,19 @@ def extract_all_conns(conn_list, factors_dict, var_lists, args):
                     # If a result is found, extract hyperparameters and evaluation metrics
                     if result:
                         hyperparam = result["max_combination"]
+                        # Default: keep the original summary alignment
+                        y_eval = y_mean_matched
+
+                        # HIP/AMY high-resolution mapping:
+                        # prediction has already been aggregated and inserted
+                        # back into the original observation ROI space.
+                        # Therefore use the original observed tau directly
+                        hip_amy_mapping = result["max_results_tmp"].get("hip_amy_eval_mapping", None)
+                        if hip_amy_mapping:
+                            y_eval = y_mean
+                            print("[summary] HIP/AMY mapping detected. Using original observation ROI space", y_eval.sahpe)
+                        if result["max_pattern"].shape[0] != y_eval.shape[0]:
+                            raise ValueError(f"Prediction ROI count ({result['max_pattern'].shape[0]}) does not match observed ROI count ({y_eval.shape[0]})")
                         time, metric_across_time = find_best_time(result['max_pattern'], y_mean_matched, args.eval_metric)
                         r, mse, ev, pred_scaled = evaluate_the_best_time(result['max_pattern'][:, time], y_mean_matched)
                     else:

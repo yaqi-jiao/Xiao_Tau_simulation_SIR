@@ -259,6 +259,9 @@ def plot_interm_difference(results_tmp, output_path, save_name):
 
     for name, result in results_tmp.items():
         if result is not None and not isinstance(result, list):
+            if not isinstance(result, np.ndarray):
+                continue
+
             if result.ndim == 2:
                 # tmp filter for toy data with only 10 ROIs
                 valid_selected_epicenter = {
@@ -300,6 +303,8 @@ def plot_interm_difference(results_tmp, output_path, save_name):
                     ax.set_title('Time '+str(t))
                     fig.colorbar(im, ax=ax)
                 plt.tight_layout()
+            else:  # e.g. eval_roi_size: 1D array, not an intermediate time-series plot
+                continue
 
             plt.savefig(os.path.join(output_path, name+"_"+save_name+".png"))
             plt.close()
