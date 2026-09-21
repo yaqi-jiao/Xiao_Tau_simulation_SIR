@@ -15,6 +15,56 @@ Main changes include:
 
 These modifications were introduced for the current project and are mainly contained in the scripts of this fork.
 
+## Test data
+
+The `data/` directory contains small synthetic datasets for validating and debugging the newly added ROI-mapping functionality. These datasets are designed specifically for testing the mapping workflow and are not intended for scientific analysis.
+
+Two complementary test cases are provided:
+
+#### 1. Tau ROI space larger than the connectivity ROI space
+
+The alternative connectivity contains a 6-ROI subset of the 10 observed tau ROIs. This test is used to confirm that the original one-directional ROI matching remains compatible with the extended implementation.
+
+A simple test run can be launched with:
+
+```python 
+python run.py \
+    --model_name toy_restore_altSC \
+    --input_data_name Input_SIR_toy_tau10.pkl \
+    --connectivity_file Connectomes_toy_alt6.pkl \
+    --SC toy_alt_sc \
+    --epicenter_list ctx_lh_entorhinal \
+    --simulated_protein tau \
+    --protein_type Load \
+    --T_total 100
+```
+
+For this case, the expected behavior is that the observed tau data are matched to the 6 ROIs available in the alternative connectivity before the corresponding simulation output is evaluated.
+
+#### 2. Higher-resolution connectivity mapped to a coarse tau atlas
+
+The observed tau input contains 8 coarse ROIs, while the alternative connectivity contains 16 ROIs. Entorhinal and precuneus ROIs correspond directly between the two spaces, whereas the hippocampus and amygdala are represented by multiple finer subregions in the connectivity atlas.
+
+This test therefore verifies that the simulation space and evaluation space can be different: the SIR model runs on the full higher-resolution connectome, while the simulated output is mapped back to the coarse observed tau atlas before model evaluation.
+
+A simple test run can be launched with:
+
+```python
+python run.py \
+    --model_name toy_hipamy_mapping \
+    --input_data_name Input_SIR_toy_coarse_HIPAMY.pkl \
+    --connectivity_file Connectomes_toy_highres_HIPAMY.pkl \
+    --SC SC \
+    --epicenter_list ctx_lh_entorhinal \
+    --simulated_protein tau \
+    --protein_type Load \
+    --T_total 100
+```
+
+The full-resolution prediction should remain in the 16-ROI space during simulation and only be transformed to the 8-ROI observed space when required for evaluation.
+
+**Note:** T_total=100 is used here only for a quick functional test. It is not intended as a meaningful simulation setting.
+
 # Original README from the upstream repository
 
 The documentation below is retained from the original repository and describes the base SIR model, installation, data structure, and general usage.
