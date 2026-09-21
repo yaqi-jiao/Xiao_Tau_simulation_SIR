@@ -1,3 +1,24 @@
+# SIR Model – Project Fork
+This repository is a fork of the original SIR model repository developed in DeMON lab.
+
+## Modifications in this fork
+
+This fork extends the original ROI-matching procedure to support cases where the observed tau data and the connectivity matrix are defined in different ROI spaces.
+
+Main changes include:
+
+- Support for both **observed tau ROIs > connectivity ROIs** and **connectivity ROIs > observed tau ROIs**.
+
+- Simulations can run on the **full connectivity space**, while predictions are mapped or sliced back to the observed tau ROIs for evaluation.
+
+- Added support for **higher-resolution connectivity parcellations**, where multiple fine-resolution connectivity ROIs can be mapped to a common coarse observed tau ROI. 
+
+These modifications were introduced for the current project and are mainly contained in the scripts of this fork.
+
+# Original README from the upstream repository
+
+The documentation below is retained from the original repository and describes the base SIR model, installation, data structure, and general usage.
+
 # Simulation tau propatation in the brain using the SIR model
 
 **Preprint:** Available on [arXiv](https://www.biorxiv.org/content/10.1101/2025.04.17.648358).
