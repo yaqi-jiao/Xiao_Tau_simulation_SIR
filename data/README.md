@@ -1,441 +1,256 @@
-# Toy Data for ROI-Mapping Tests
+# Toy Data for Modified SIR model
 
-This folder contains small synthetic datasets used to test the ROI-mapping extensions added to the SIR simulation pipeline.
+This folder contains small synthetic datasets used to test the ROI-mapping extensions implemented in this modified SIR model.
 
 The toy datasets are intended **only for code testing, validation, and debugging**. The connectivity matrices, ROI sizes, and tau values are synthetic and should not be interpreted as biologically meaningful data.
 
-Two mapping scenarios are included:
+## Relationship to the project workflow repository
 
-1. **`toy_for_restore_altSC`** — tests the original case where the observed tau data contain more ROIs than the alternative connectivity.
-2. **`toy_hipamy_mapping`** — tests higher-resolution connectivity, where several fine-resolution hippocampal/amygdala ROIs correspond to one coarse observed tau ROI.
+The toy input datasets used here are prepared as part of the project-level workflow maintained in a separate repository:
 
----
+[Subcortex-SIR](<https://github.com/yaqi-jiao/Subcortex_SIR>)
 
-# 1. `toy_for_restore_altSC`
+The data-generation and preprocessing scripts themselves are maintained in the project repository rather than duplicated here.
 
-## Purpose
+## General Data Structure
 
-This dataset tests ROI matching when:
+The toy datasets follow the same input conventions as the main SIR workflow.
 
-- the observed tau data are defined on **10 ROIs**;
-- the alternative connectivity is defined on a **6-ROI subset** of those ROIs.
+Two types of files are used:
+    
+### 1. Main SIR input files
 
-This represents the case:
+   Contain observed tau data together with a default connectivity representation.
+
+   Main input file follow the structure:
+
 
 ```text
-Observed tau ROIs > Connectivity ROIs
-```
-
-The observed tau data are matched to the ROIs available in the alternative connectivity so that simulation and evaluation use the common ROI subset.
-
-## 1.1 Main simulation data
-
-**Filename:** `Input_SIR_toy_tau10.pkl`  
-**File format:** Pickle (`.pkl`)  
-**Top-level type:** Python `dict`
-
-### Expected structure
-
-```python
-{
-    "tau": pandas.DataFrame,
-    "conn": {
-        "conn": numpy.ndarray,
-        "SC_len": numpy.ndarray,
-        "name": list,
-        "ROI_size": dict
+    {
+        "tau": pandas.DataFrame,
+        "conn": {
+            "conn": numpy.ndarray,
+            "SC_len": numpy.ndarray or None,
+            "name": list,
+            "ROI_size": dict
+        }
     }
-}
 ```
 
-### `tau`
+`tau`
 
 - **Type:** `pandas.DataFrame`
-- **Shape:** `(10, 2)`
-- **Columns:** `Load`, `Presence`
-- **Description:** Synthetic observed tau values for 10 ROIs.
 
-ROI order:
+- **Shape:** `(n_observed_ROIs, n_tau_types)`
 
-```text
-ctx_lh_entorhinal
-ctx_rh_entorhinal
-ctx_lh_precuneus
-ctx_rh_precuneus
-ctx_lh_middletemporal
-ctx_rh_middletemporal
-ctx_lh_hippocampus
-ctx_rh_hippocampus
-ctx_lh_thalamus
-ctx_rh_thalamus
-```
-
-### `conn["conn"]`
+- **Description:** Observed or synthetic tau values used as the reference data for simulation evaluation.
+  
+`conn['conn']`
 
 - **Type:** `numpy.ndarray`
-- **Shape:** `(10, 10)`
-- **Description:** Default toy connectivity matrix corresponding to the 10-ROI input space.
 
-### `conn["SC_len"]`
+- **Shape:** `(n_observed_ROIs, n_observed_ROIs)`
 
-- **Type:** `numpy.ndarray`
-- **Shape:** `(10, 10)`
-- **Description:** Toy structural connection-length matrix corresponding to the default 10-ROI connectivity.
+- **Description:** Default connectivity matrix associated with the observed ROI space
+  
+`conn['SC_len']`
 
-### `conn["name"]`
+- **Type:** `numpy.ndarray` or None
+  
+- **Shape:** `(n_observed_ROIs, n_observed_ROIs)` when available
+
+- **Description:** Structural connection-length matrix aligned with the default connectivity.
+
+`conn["name"]`
 
 - **Type:** `list`
-- **Length:** `10`
-- **Description:** ROI labels corresponding to the rows and columns of `conn["conn"]`.
 
-### `conn["ROI_size"]`
+- **Length:** `n_observed_ROIs`
+
+- **Description:** ROI labels defining the observed tau space.
+
+`conn["ROI_size"]`
 
 - **Type:** `dict`
-- **Number of entries:** `10`
-- **Description:** Synthetic ROI sizes keyed by the 10 input ROI names.
 
----
+- **Description:** ROI sizes keyed by the ROI labels in `conn["name"]`.
+    
 
-## 1.2 Alternative connectivity
+### 2. Alternative connectivity files
 
-**Filename:** `Connectomes_toy_alt6.pkl`  
-**File format:** Pickle (`.pkl`)  
-**Top-level type:** Python `dict`
+    Contain a replacement connectivity matrix and the ROI information associated with that connectivity space.
+ 
+    Alternative connectivity files follow the structure:
 
-### Expected structure
-
-```python
+```text
 {
-    "toy_alt_sc": numpy.ndarray,
+    "<connectivity_name>": numpy.ndarray,
     "labels": list,
     "ROI_size": dict,
-    "SC_len": numpy.ndarray
+    "SC_len": numpy.ndarray or None
 }
+
 ```
 
-### `toy_alt_sc`
+`connectivity_name`
 
 - **Type:** `numpy.ndarray`
-- **Shape:** `(6, 6)`
-- **Description:** Alternative toy connectivity matrix used to replace the default connectivity.
 
-### `labels`
+- **Shape:** `(n_connectivity_ROIs, n_connectivity_ROIs)`
+
+- **Description:** Alternative connectivity matrix used to replace the default connectivity during simulation.
+
+`labels`
 
 - **Type:** `list`
-- **Length:** `6`
-- **Description:** ROI labels corresponding to the alternative connectivity.
 
-ROI order:
+- **Length:** `n_connectivity_ROIs`
 
-```text
-ctx_lh_entorhinal
-ctx_rh_entorhinal
-ctx_lh_middletemporal
-ctx_rh_middletemporal
-ctx_lh_thalamus
-ctx_rh_thalamus
-```
+- **Description:** ROI labels corresponding to the rows and columns of the alternative connectivity matrix.
 
-These 6 ROIs are a subset of the 10 observed tau ROIs.
-
-The following observed ROIs are therefore not included in this alternative connectivity:
-
-```text
-ctx_lh_precuneus
-ctx_rh_precuneus
-ctx_lh_hippocampus
-ctx_rh_hippocampus
-```
-
-### `ROI_size`
+`ROI_size`
 
 - **Type:** `dict`
-- **Number of entries:** `6`
-- **Description:** ROI sizes aligned with the 6 alternative-connectivity ROIs.
 
-### `SC_len`
+- **Description:** ROI sizes aligned with the alternative connectivity labels.
 
-- **Type:** `numpy.ndarray`
-- **Shape:** `(6, 6)`
-- **Description:** Structural connection-length matrix aligned with `toy_alt_sc`.
+`SC_len`
 
----
+- **Type:** `numpy.ndarray` or `None`
 
-## 1.3 Mapping tested
+- **Shape:** `(n_connectivity_ROIs, n_connectivity_ROIs)` when available
 
-Conceptually:
+- **Description:** Structural connection-length matrix aligned with the alternative connectivity.
+
+
+## Directory Structure
+
+```text
+data/
+├── README.md  # This file
+│
+├── toy_for_restore_altSC/  # 10 observed ROIs → 6 connectivity ROIs
+│   ├── Input_SIR_toy_tau10.pkl
+│   └── Connectomes_toy_alt6.pkl
+│
+├── toy_for_altSC/  # 
+│   ├── 
+│   └── 
+│
+└── toy_hipamy_mapping/  # 8 coarse observed ROIs ← 16 connectivity ROIs 
+    ├── Input_SIR_toy_coarse_HIPAMY.pkl
+    └── Connectomes_toy_highres_HIPAMY.pkl
+
+```
+Each folder contains one main SIR input file and one alternative connectivity file.
+
+## Test Scenarios
+
+### 1. toy_for_restore_altSC
+
+This dataset tests the original ROI-matching case where the observed tau data contain more ROIs than the alternative connectivity.
+
+#### Files
+
+```text
+Input_SIR_toy_tau10.pkl
+    Observed tau space: 10 ROIs
+    Tau columns: Load, Presence
+    Default connectivity: 10 × 10
+
+Connectomes_toy_alt6.pkl
+    Alternative connectivity space: 6 ROIs
+    Connectivity key: toy_alt_sc
+    Alternative connectivity: 6 × 6
+    SC_len: 6 × 6
+```
+
+The six alternative-connectivity ROIs are a subset of the ten observed tau ROIs.
+
+#### Mapping tested
 
 ```text
 Observed tau: 10 ROIs
-        |
-        | match ROI labels
-        v
+        ↓
+Match ROI labels
+        ↓
 Alternative connectivity: 6 ROIs
-        |
-        v
-Select the 6 overlapping tau ROIs
-        |
-        v
-SIR simulation and evaluation in the matched 6-ROI space
+        ↓
+Select overlapping tau ROIs
+        ↓
+Simulation and evaluation in the matched 6-ROI space
 ```
 
-This toy dataset is used to confirm backward compatibility with the original one-directional ROI matching procedure.
+### 2. toy_hipamy_mapping
 
----
+This dataset tests the higher-resolution connectivity mapping workflow.
 
-# 2. `toy_hipamy_mapping`
+The observed tau data are defined in a coarse 8-ROI space, while the alternative connectivity contains 16 ROIs.
 
-## Purpose
-
-This dataset tests a different situation in which the alternative connectivity has a **higher atlas resolution** than the observed tau data.
-
-The observed tau input contains **8 coarse ROIs**, whereas the alternative connectivity contains **16 ROIs**. Entorhinal and precuneus ROIs are shared directly, while coarse hippocampus and amygdala ROIs are represented by multiple fine-resolution subregions in the alternative connectivity.
-
-This represents the case:
+#### Files
 
 ```text
-Higher-resolution connectivity ROIs > Observed tau ROIs
+Input_SIR_toy_coarse_HIPAMY.pkl
+    Observed tau space: 8 coarse ROIs
+    Tau column: Load
+    Default connectivity: 8 × 8
+
+Connectomes_toy_highres_HIPAMY.pkl
+    Alternative connectivity space: 16 ROIs
+    Connectivity key: SC
+    Alternative connectivity: 16 × 16
+    SC_len: None
 ```
 
-The intended workflow is to run the SIR model on the full higher-resolution connectivity and map the simulated prediction back to the coarse observed tau space for evaluation.
-
----
-
-## 2.1 Coarse observed-tau input
-
-**Generated filename:** `Input_SIR_toy_coarse_HIPAMY.pkl`  
-**File format:** Pickle (`.pkl`)  
-**Top-level type:** Python `dict`
-
-### Expected structure
-
-```python
-{
-    "tau": pandas.DataFrame,
-    "conn": {
-        "conn": numpy.ndarray,
-        "SC_len": numpy.ndarray,
-        "name": list,
-        "ROI_size": dict
-    }
-}
-```
-
-### `tau`
-
-- **Type:** `pandas.DataFrame`
-- **Shape:** `(8, 1)`
-- **Column:** `Load`
-- **Description:** Synthetic observed tau values defined in the coarse evaluation space.
-
-ROI order:
-
-```text
-ctx_lh_entorhinal
-ctx_rh_entorhinal
-ctx_lh_precuneus
-ctx_rh_precuneus
-Left_Hippocampus
-Right_Hippocampus
-Left_Amygdala
-Right_Amygdala
-```
-
-### `conn["conn"]`
-
-- **Type:** `numpy.ndarray`
-- **Shape:** `(8, 8)`
-- **Description:** Synthetic coarse connectivity matrix associated with the observed tau input.
-
-### `conn["SC_len"]`
-
-- **Type:** `numpy.ndarray`
-- **Shape:** `(8, 8)`
-- **Description:** Synthetic connection-length matrix for the coarse input connectivity.
-
-### `conn["name"]`
-
-- **Type:** `list`
-- **Length:** `8`
-- **Description:** Coarse ROI labels defining the observed/evaluation space.
-
-### `conn["ROI_size"]`
-
-- **Type:** `dict`
-- **Number of entries:** `8`
-- **Description:** Synthetic ROI sizes for the coarse atlas.
-
----
-
-## 2.2 Higher-resolution alternative connectivity
-
-**Generated filename:** `Connectomes_toy_highres_HIPAMY.pkl`  
-**File format:** Pickle (`.pkl`)  
-**Top-level type:** Python `dict`
-
-### Expected structure
-
-```python
-{
-    "SC": numpy.ndarray,
-    "labels": list,
-    "ROI_size": dict,
-    "SC_len": None
-}
-```
-
-### `SC`
-
-- **Type:** `numpy.ndarray`
-- **Shape:** `(16, 16)`
-- **Description:** Synthetic higher-resolution alternative connectivity matrix.
-
-### `labels`
-
-- **Type:** `list`
-- **Length:** `16`
-- **Description:** ROI labels corresponding to the higher-resolution connectivity.
-
-ROI order:
-
-```text
-ctx_lh_entorhinal
-ctx_rh_entorhinal
-ctx_lh_precuneus
-ctx_rh_precuneus
-Hippocampus_head_medial_division-lh
-Hippocampus_head_lateral_division-lh
-Hippocampus_body-lh
-Hippocampus_tail-lh
-Hippocampus_head_medial_division-rh
-Hippocampus_head_lateral_division-rh
-Hippocampus_body-rh
-Hippocampus_tail-rh
-Lateral_amygdala-lh
-Medial_amygdala-lh
-Lateral_amygdala-rh
-Medial_amygdala-rh
-```
-
-### `ROI_size`
-
-- **Type:** `dict`
-- **Number of entries:** `16`
-- **Description:** Synthetic ROI sizes aligned with the higher-resolution connectivity labels.
-
-The finer hippocampal ROI sizes sum to the corresponding coarse hippocampal ROI size:
-
-```text
-Left hippocampus:
-900 + 850 + 1200 + 650 = 3600
-
-Right hippocampus:
-900 + 850 + 1200 + 650 = 3600
-```
-
-The finer amygdala ROI sizes likewise sum to the corresponding coarse amygdala ROI size:
-
-```text
-Left amygdala:
-950 + 650 = 1600
-
-Right amygdala:
-950 + 650 = 1600
-```
-
-### `SC_len`
-
-- **Value:** `None`
-- **Description:** No structural connection-length matrix is provided for this higher-resolution toy connectivity.
-
----
-
-## 2.3 Intended fine-to-coarse mapping
-
-The four coarse hippocampus/amygdala ROIs correspond to the following higher-resolution ROIs:
-
-### Left hippocampus
-
-```text
-Left_Hippocampus
-    <- Hippocampus_head_medial_division-lh
-    <- Hippocampus_head_lateral_division-lh
-    <- Hippocampus_body-lh
-    <- Hippocampus_tail-lh
-```
-
-### Right hippocampus
-
-```text
-Right_Hippocampus
-    <- Hippocampus_head_medial_division-rh
-    <- Hippocampus_head_lateral_division-rh
-    <- Hippocampus_body-rh
-    <- Hippocampus_tail-rh
-```
-
-### Left amygdala
-
-```text
-Left_Amygdala
-    <- Lateral_amygdala-lh
-    <- Medial_amygdala-lh
-```
-
-### Right amygdala
-
-```text
-Right_Amygdala
-    <- Lateral_amygdala-rh
-    <- Medial_amygdala-rh
-```
-
-The following ROIs are shared directly between the coarse and high-resolution spaces:
-
-```text
-ctx_lh_entorhinal
-ctx_rh_entorhinal
-ctx_lh_precuneus
-ctx_rh_precuneus
-```
-
----
-
-## 2.4 Mapping tested
-
-Conceptually:
+#### Mapping tested
 
 ```text
 Observed tau
 8 coarse ROIs
-        |
-        | define fine-to-coarse correspondence
-        v
+        ↓
 Higher-resolution connectivity
 16 ROIs
-        |
-        v
+        ↓
 Run SIR on the full 16-ROI connectome
-        |
-        v
-Map / aggregate higher-resolution predictions
-back to the 8 coarse observed ROIs
-        |
-        v
-Evaluate in the observed tau space
+        ↓
+Fine-to-coarse HIP/AMY mapping
+        ↓
+Prediction mapped back to 8 observed ROIs
+        ↓
+Evaluation
 ```
 
-This toy dataset tests separation between:
+## Reproducing the Toy Inputs
 
-- **simulation space:** higher-resolution connectivity atlas;
-- **evaluation space:** coarse observed tau atlas.
+The toy input files stored here are generated or prepared in the project-level workflow repository:
 
----
+[Subcortex_SIR](<https://github.com/yaqi-jiao/Subcortex_SIR>)
 
-# Notes
+The intended workflow is:
+
+```text
+Project / workflow repository
+        │
+        ├── generate / prepare toy data
+        ├── construct SIR-compatible input
+        └── construct alternative connectivity
+                │
+                ▼
+        copy test inputs to
+        SIR model repository/data/
+                │
+                ▼
+        run model-level ROI-mapping tests
+```
+
+This separation keeps project-specific data preparation outside the core SIR model repository while retaining the minimal test datasets required to validate model functionality.
+
+## Notes
 
 - All values are synthetic.
-- The datasets are intentionally small so that ROI ordering and mapping behavior can be inspected manually.
-- These files are for unit/integration testing and debugging of the ROI-mapping workflow.
+
+- These datasets are intentionally small so that ROI ordering and mapping behavior can be inspected manually.
+
 - They should not be used for biological interpretation or scientific analysis.
-- For the higher-resolution HIP/AMY example, the data files contain the coarse and fine ROI definitions; the fine-to-coarse mapping behavior is handled by the simulation/evaluation code rather than being encoded as an additional mapping object in the generated connectivity file.
+
+- For the higher-resolution HIP/AMY example, the data files contain the coarse and fine ROI definitions; the fine-to-coarse mapping behavior is handled by the simulation/evaluation code rather than being stored as an additional mapping object in the connectivity file.
