@@ -78,9 +78,9 @@ Two types of files are used:
 
 ### 2. Alternative connectivity files
 
-    Contain a replacement connectivity matrix and the ROI information associated with that connectivity space.
+Contain a replacement connectivity matrix and the ROI information associated with that connectivity space.
  
-    Alternative connectivity files follow the structure:
+Alternative connectivity files follow the structure:
 
 ```text
 {
@@ -89,7 +89,6 @@ Two types of files are used:
     "ROI_size": dict,
     "SC_len": numpy.ndarray or None
 }
-
 ```
 
 `connectivity_name`
@@ -133,9 +132,9 @@ data/
 │   ├── Input_SIR_toy_tau10.pkl
 │   └── Connectomes_toy_alt6.pkl
 │
-├── toy_for_altSC/  # 
-│   ├── 
-│   └── 
+├── toy_for_altSC/  # 6 observed ROIs ← 10 connectivity ROIs
+│   ├── Input_SIR_toy_ROI6.pkl
+│   └── Connectomes_all_toy_ROI10.pkl
 │
 └── toy_hipamy_mapping/  # 8 coarse observed ROIs ← 16 connectivity ROIs 
     ├── Input_SIR_toy_coarse_HIPAMY.pkl
@@ -181,7 +180,42 @@ Select overlapping tau ROIs
 Simulation and evaluation in the matched 6-ROI space
 ```
 
-### 2. toy_hipamy_mapping
+### 2. toy_for_altSC
+
+#### Files
+
+```text
+Input_SIR_toy_ROI6.pkl
+    Observed tau space: 10 ROIs
+    Tau columns: Load, Presence
+    Default connectivity: 10 × 10
+
+Connectomes_all_toy_ROI10.pkl
+    Alternative connectivity space: 6 ROIs
+    Connectivity key: toy_alt_sc
+    Alternative connectivity: 6 × 6
+    SC_len: 6 × 6
+```
+
+The six observed tau ROIs are a subset of the ten  alternative-connectivity ROIs.
+
+#### Mapping tested
+
+```text
+Observed tau: 6 ROIs
+        ↓
+Match ROI labels
+        ↓
+Alternative connectivity: 10 ROIs
+        ↓
+Run SIR on the full 16-ROI connectome
+        ↓
+Select overlapping tau ROIs
+        ↓
+evaluation in the matched 6-ROI space
+```
+
+### 3. toy_hipamy_mapping
 
 This dataset tests the higher-resolution connectivity mapping workflow.
 
